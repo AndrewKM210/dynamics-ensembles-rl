@@ -1,14 +1,16 @@
-import numpy as np
-from probabilistic_model import ProbabilisticModel
-from deterministic_model import DeterministicModel
-import pickle
 import argparse
-import utils
-import yaml
 import ast
-from tabulate import tabulate
-import mlflow
 import os
+import time
+import datetime
+import pickle
+import mlflow
+import numpy as np
+import yaml
+from tabulate import tabulate
+import utils
+from deterministic_model import DeterministicModel
+from probabilistic_model import ProbabilisticModel
 
 
 parser = argparse.ArgumentParser(description="Train ensemble of neural networks")
@@ -79,6 +81,7 @@ ensemble = [
 
 mlflow.set_tracking_uri(f"file:{os.getcwd()}/mlruns")
 mlflow.set_experiment("dynamics_ensembles")
+t_start = time.time()
 with mlflow.start_run(run_name=args.dataset.lower()) as run:
     mlflow.log_params(config)
     for i, nn in enumerate(ensemble):
@@ -86,4 +89,8 @@ with mlflow.start_run(run_name=args.dataset.lower()) as run:
         nn.fit_dynamics(s, a, sp, s_h, a_h, sp_h, track_val=True, **config)
 
 # Save ensemble
+print("\nSaving ensemble to", args.output)
 pickle.dump(ensemble, open(args.output, "wb"))
+
+# Show execution time
+print("\nDone in", datetime.timedelta(seconds=round(time.time() - t_start)))
