@@ -86,4 +86,4 @@ with mlflow.start_run(run_name=args.dataset.lower()) as run:
         nn.fit_dynamics(s, a, sp, s_h, a_h, sp_h, track_val=True, **config)
 
 # Save ensemble
-# pickle.dump(ensemble.models, open(args.output, "wb"))
+pickle.dump(ensemble, open(args.output, "wb"))
