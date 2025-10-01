@@ -24,21 +24,7 @@ class ProbabilisticNN(DynamicsNN):
         decays = (decay_0 + decay_1 + decay_2 + decay_3 + decay_4) * factor
         return decays
 
-    def forward(self, s, a, ret_logvar=False):
-        assert s.dim() == a.dim(), f"s and a dimensions differ: {s.dim()}, {a.dim()}"
-        assert s.shape[0] == a.shape[0], f"s and a samples differ: {s.shape[0]}, {a.shape[0]}"
-
-        # Normalize inputs
-        s_in = (s - self.s_shift) / (self.s_scale + 1e-8)
-        a_in = (a - self.a_shift) / (self.a_scale + 1e-8)
-
-        # Feed through network
-        out = torch.cat([s_in, a_in], -1)
-        for i in range(len(self.layers) - 1):
-            out = self.layers[i](out)
-            out = self.activation_fn(out)
-        out = self.layers[-1](out)
-
+    def _finalize_forward(self, s, out, ret_logvar=False):
         # Obtain mean and logvar
         mean = out[..., : self.out_dim // 2]
         logvar = out[..., self.out_dim // 2 :]
@@ -139,27 +125,4 @@ class ProbabilisticModel(DynamicsModel):
         mean, logvar = self.nn.forward(s, a)
         pred = mean if det else mean + torch.randn_like(mean, device=self.device) * logvar.sqrt()
         pred = pred.detach().cpu().numpy() if to_cpu else pred
-        return pred
-
-    def predict_batched(self, s, a, batch_size=256, to_cpu=True, det=True):
-        # Batch predict to lessen GPU usage
-        assert type(s) is type(a)
-        assert s.shape[0] == a.shape[0]
-        if type(s) is np.ndarray:
-            s = torch.from_numpy(s).float()
-            a = torch.from_numpy(a).float()
-        num_samples = s.shape[0]
-        num_steps = int(num_samples // batch_size) + 1
-        pred = np.ndarray((s.shape))
-        for mb in range(num_steps):
-            batch_idx = slice(mb * batch_size, (mb + 1) * batch_size)
-            s_batch = s[batch_idx].to(self.device)
-            a_batch = a[batch_idx].to(self.device)
-            mean, logvar = self.nn.forward(s_batch, a_batch)
-            if det:
-                pred_b = mean
-            else:
-                pred_b = mean + torch.randn_like(mean, device=self.device) * logvar.sqrt()
-            pred_b = pred_b.to("cpu").data.numpy()
-            pred[batch_idx] = pred_b
         return pred

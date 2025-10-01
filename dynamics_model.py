@@ -48,6 +48,25 @@ class DynamicsNN(torch.nn.Module):
         self.out_scale = torch.from_numpy(self.out_scale).float().to(device)
         self.mask = torch.from_numpy(self.mask).to(device)
 
+    def _finalize_forward(self, s, out):
+        raise NotImplementedError
+    
+    def forward(self, s, a, *args, **kwargs):
+        assert s.dim() == a.dim(), f"s and a dimensions differ: {s.dim()}, {a.dim()}"
+        assert s.shape[0] == a.shape[0], f"s and a samples differ: {s.shape[0]}, {a.shape[0]}"
+
+        # Normalize inputs
+        s_in = (s - self.s_shift) / (self.s_scale + 1e-8)
+        a_in = (a - self.a_shift) / (self.a_scale + 1e-8)
+
+        # Feed through network
+        out = torch.cat([s_in, a_in], -1)
+        for i in range(len(self.layers) - 1):
+            out = self.layers[i](out)
+            out = self.activation_fn(out)
+        out = self.layers[-1](out)
+
+        return self._finalize_forward(s, out, *args, **kwargs)
 
 class DynamicsModel:
     def __init__(self, device="cuda", probabilistic=False, *args, **kwargs):
@@ -123,11 +142,25 @@ class DynamicsModel:
         a = a.to(self.device)
         return self.nn.forward(s, a)
 
-    def predict(self, s, a, to_cpu=True, det=True):
+    def predict(self, s, a, to_cpu=True, *arg, **kwarg):
         raise NotImplementedError
 
-    def predict_batched(self, s, a, batch_size=256, to_cpu=True, det=True):
-        raise NotImplementedError
+    def predict_batched(self, s, a, batch_size=256, to_cpu=True, *arg, **kwarg):
+        # Batch predict to lessen GPU usage
+        assert type(s) is type(a)
+        assert s.shape[0] == a.shape[0]
+        if type(s) is np.ndarray:
+            s = torch.from_numpy(s).float()
+            a = torch.from_numpy(a).float()
+        num_samples = s.shape[0]
+        num_steps = int(num_samples // batch_size) + 1
+        pred = np.ndarray((s.shape))
+        for batch in range(num_steps):
+            batch_idx = slice(batch * batch_size, (batch + 1) * batch_size)
+            s_batch = s[batch_idx].to(self.device)
+            a_batch = a[batch_idx].to(self.device)
+            pred[batch_idx] = self.predict(s_batch, a_batch, to_cpu, *arg, **kwarg)
+        return pred
 
     def compute_loss_batched(self, s, a, sp, batch_size=256):
         assert type(s) is type(a) is type(sp)
@@ -147,10 +180,8 @@ class DynamicsModel:
             s_batch = s[batch_idx]
             a_batch = a[batch_idx]
             sp_batch = sp[batch_idx]
-            mean = self.forward(s_batch, a_batch)
-            if type(mean) is tuple:
-                mean = mean[0]
-            loss_batch = self.mse_loss(sp_batch, mean).to("cpu").data.numpy()
+            pred = self.predict(s_batch, a_batch, to_cpu=False)
+            loss_batch = self.mse_loss(sp_batch, pred).to("cpu").data.numpy()
             losses.append(loss_batch)
 
         return np.mean(losses)
