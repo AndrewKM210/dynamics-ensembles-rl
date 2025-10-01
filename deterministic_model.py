@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from dynamics_model import DynamicsNN, DynamicsModel, swish
-import mlflow
 
 
 class DeterministicNN(DynamicsNN):
@@ -59,96 +58,37 @@ class DeterministicModel(DynamicsModel):
         else:
             self.scheduler = None
 
-    def fit_dynamics(
-        self,
-        s,
-        a,
-        sp,
-        s_h=None,
-        a_h=None,
-        sp_h=None,
-        batch_size=256,
-        fit_epochs=100,
-        max_steps=1e4,
-        track_val=False,
-        *args,
-        **kwargs,
-    ):
-        # Train on normalized data
-        self.nn.transform_out = False
-        self.nn.set_transformations(s, a, sp, self.device)
-        sp = (sp - s - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
-        if sp_h is not None:
-            sp_h = (sp_h - s_h - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
-        self.nn.transformations_to(self.device)
+    def _train_step(self, s, a, sp, n_batches, batch_size, n_samples, fill_last_batch):
+        rand_idx = np.random.permutation(n_samples)
+        mse_loss = 0.0
 
-        # Compute number of batches
-        n_samples = sp.shape[0]
-        n_batches = int(n_samples // batch_size)
-        fill_last_batch = False
-        if n_samples != n_batches * batch_size:
-            n_batches += 1
-            fill_last_batch = True
-        val_loss = None
+        for b in range(n_batches):
+            # Get batch of data, fill with random samples if last batch
+            data_idx = rand_idx[b * batch_size : (b + 1) * batch_size]
+            if b == n_batches - 1 and fill_last_batch:
+                fill_size = (batch_size - data_idx.shape[0],)
+                fill_idx = rand_idx[: b * batch_size][np.random.randint(0, b * batch_size, fill_size)]
+                data_idx = np.concatenate([data_idx, fill_idx])
 
-        # Start MLflow run
-        mlflow.start_run(run_name=f"dnn-{self.id}", nested=True)
+            # Move batch to GPU
+            s_batch = torch.from_numpy(s[data_idx]).float().to(self.device)
+            a_batch = torch.from_numpy(a[data_idx]).float().to(self.device)
+            sp_batch = torch.from_numpy(sp[data_idx]).float().to(self.device)
 
-        # Train neural network
-        for e in range(fit_epochs):
-            print(f"Epoch: {e}")
-            rand_idx = np.random.permutation(n_samples)
-            mse_loss = 0.0
+            # Predict with neural network
+            sp_hat = self.nn.forward(s_batch, a_batch)
 
-            for b in range(n_batches):
-                # Get batch of data, fill with random samples if last batch
-                data_idx = rand_idx[b * batch_size : (b + 1) * batch_size]
-                if b == n_batches - 1 and fill_last_batch:
-                    fill_size = (batch_size - data_idx.shape[0],)
-                    fill_idx = rand_idx[: b * batch_size][np.random.randint(0, b * batch_size, fill_size)]
-                    data_idx = np.concatenate([data_idx, fill_idx])
+            # Compute loss (MSE)
+            loss = self.mse_loss(sp_hat, sp_batch)
 
-                # Move batch to GPU
-                s_batch = torch.from_numpy(s[data_idx]).float().to(self.device)
-                a_batch = torch.from_numpy(a[data_idx]).float().to(self.device)
-                sp_batch = torch.from_numpy(sp[data_idx]).float().to(self.device)
+            # Optimizer step
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            mse_loss += loss.detach().cpu().numpy()
 
-                # Predict with neural network
-                sp_hat = self.nn.forward(s_batch, a_batch)
-
-                # Compute loss (MSE)
-                loss = self.mse_loss(sp_hat, sp_batch)
-
-                # Optimizer step
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                mse_loss += loss.detach().cpu().numpy()
-
-            # Update learning rate if using a scheduler
-            lr = 0
-            if self.scheduler:
-                self.scheduler.step()
-                lr = self.scheduler.get_last_lr()[0]
-
-            # Compute validation loss if there is a holdout set
-            if (e == 0 or e % 50 == 0 or e == fit_epochs - 1 or track_val) and s_h is not None:
-                val_loss = self.compute_loss_batched(s_h, a_h, sp_h)
-
-            # Log metrics to MLflow run
-            mse_loss = mse_loss * 1.0 / n_batches
-            print(f"mse_loss_{self.id}: {mse_loss}")
-            mlflow.log_metric("mse_train_loss", mse_loss, step=e)
-            if self.scheduler:
-                print(f"lr_{self.id}: {lr}")
-                mlflow.log_metric("lr", lr, step=e)
-            if val_loss:
-                print(f"val_loss_{self.id}: {val_loss}")
-                mlflow.log_metric("mse_val_loss", val_loss, step=e)
-            print()
-
-        mlflow.end_run()
-        self.nn.transform_out = True  # Once trained, outputs should not be normalized
+        mse_loss = mse_loss * 1.0 / n_batches
+        return {"mse_loss": mse_loss}
 
     def predict(self, s, a):
         s = torch.from_numpy(s).float()

@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import mlflow
+from tabulate import tabulate
 
 
 def swish(x):
@@ -48,7 +50,8 @@ class DynamicsNN(torch.nn.Module):
 
 
 class DynamicsModel:
-    def __init__(self, device="cuda", *args, **kwargs):
+    def __init__(self, device="cuda", probabilistic=False, *args, **kwargs):
+        self.probabilistic = probabilistic  # Neural network type
         self.device = device
         self.mse_loss = torch.nn.MSELoss()
         self.holdout_idx = None
@@ -59,10 +62,57 @@ class DynamicsModel:
     def to(self, device):
         self.nn.to(device)
 
+    def _train_step(self, s, a, sp, n_batches, batch_size, n_samples, fill_last_batch):
+        raise NotImplementedError
+
     def fit_dynamics(
-        self, s, a, sp, s_h, a_h, sp_h, batch_size, fit_epochs, max_steps=1e4, track_mse=False, *args, **kwargs
+        self, s, a, sp, s_h, a_h, sp_h, fit_epochs, batch_size=256, max_steps=1e4, track_metrics=False, *args, **kwargs
     ):
-        raise NotImplementedError("The method fit_dynamics must be implemented")
+        # Train on normalized data
+        self.nn.transform_out = False
+        self.nn.set_transformations(s, a, sp, self.device)
+        sp = (sp - s - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
+        if sp_h is not None:
+            sp_h = (sp_h - s_h - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
+        self.nn.transformations_to(self.device)
+
+        # Compute number of batches
+        n_samples = sp.shape[0]
+        n_batches = int(n_samples // batch_size)
+        fill_last_batch = False
+        if n_samples != n_batches * batch_size:
+            n_batches += 1
+            fill_last_batch = True
+
+        # Start MLflow run
+        mlflow.start_run(run_name=f"{'pnn' if self.probabilistic else 'dnn'}-{self.id}", nested=True)
+
+        # Train neural network
+        for e in range(fit_epochs):
+            metrics = self._train_step(s, a, sp, n_batches, batch_size, n_samples, fill_last_batch)
+
+            # Update learning rate if using a scheduler
+            lr = 0
+            if self.scheduler:
+                self.scheduler.step()
+                lr = self.scheduler.get_last_lr()[0]
+                metrics["lr"] = lr
+
+            # Compute MSE if needed
+            if track_metrics or e == 0 or e % 50 == 0 or e == fit_epochs - 1:
+                metrics["train_mse"] = (
+                    self.compute_loss_batched(s, a, sp) if self.probabilistic else metrics["mse_loss"]
+                )
+                if s_h is not None:
+                    metrics["val_mse"] = self.compute_loss_batched(s_h, a_h, sp_h)
+
+            # Log metrics to MLflow run
+            mlflow.log_metrics(metrics, step=e)
+            print(tabulate([(k, v) for k, v in metrics.items()], headers=[f"Epoch {e}", ""]))
+            print()
+
+        mlflow.end_run()
+        self.nn.transform_out = True  # Once trained, outputs should not be normalized
 
     def forward(self, s, a):
         if type(s) is np.ndarray:
