@@ -18,7 +18,8 @@ parser.add_argument("--dataset", type=str, required=True, help="name of D4RL dat
 parser.add_argument("--config", type=str, required=True, help="path to config yaml file")
 parser.add_argument("--output", type=str, default="test.pickle", help="output path for model")
 parser.add_argument("--holdout_ratio", type=float, default=0.0, help="percentage of dataset to use for validation")
-parser.add_argument("--run_name", type=str, default=None, help="mlflow run name, default is {dataset}_[dnn/pnn]")
+parser.add_argument("--csv", type=str, default=None, help="path to csv with training metrics, will track all metrics")
+parser.add_argument("--track_training", action="store_true", default=False, help="track all training metrics")
 args = parser.parse_args()
 
 # Open and parse config file
@@ -26,6 +27,10 @@ with open(args.config, "r") as f:
     config = yaml.safe_load(f)
 config["fit_lr"] = float(config["fit_lr"])
 config["hidden_size"] = ast.literal_eval(config["hidden_size"])
+
+# If asked, prepare folder where the csv should be saved
+if args.csv is not None:
+    utils.prepare_log_csv(args.csv)
 
 # Seed libraries
 seed = config.pop("seed")
@@ -82,11 +87,15 @@ ensemble = [
 mlflow.set_tracking_uri(f"file:{os.getcwd()}/mlruns")
 mlflow.set_experiment("dynamics_ensembles")
 t_start = time.time()
+track_metrics = args.track_training or args.csv is not None
+fit_epochs = config["fit_epochs"]
 with mlflow.start_run(run_name=args.dataset.lower()) as run:
     mlflow.log_params(config)
     for i, nn in enumerate(ensemble):
         print(f"\nFitting neural network {i}\n")
-        nn.fit_dynamics(s, a, sp, s_h, a_h, sp_h, track_val=True, **config)
+        metrics = nn.fit_dynamics(s, a, sp, s_h, a_h, sp_h, track_metrics=track_metrics, fit_epochs=fit_epochs)
+        if args.csv is not None:
+            utils.update_metrics_csv(metrics, args.csv, replace=i==0)
 
 # Save ensemble
 print("\nSaving ensemble to", args.output)

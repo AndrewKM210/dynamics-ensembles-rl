@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import mlflow
 from tabulate import tabulate
+from utils import MetricsLog
 
 
 def swish(x):
@@ -50,7 +51,7 @@ class DynamicsNN(torch.nn.Module):
 
     def _finalize_forward(self, s, out):
         raise NotImplementedError
-    
+
     def forward(self, s, a, *args, **kwargs):
         assert s.dim() == a.dim(), f"s and a dimensions differ: {s.dim()}, {a.dim()}"
         assert s.shape[0] == a.shape[0], f"s and a samples differ: {s.shape[0]}, {a.shape[0]}"
@@ -68,6 +69,7 @@ class DynamicsNN(torch.nn.Module):
 
         return self._finalize_forward(s, out, *args, **kwargs)
 
+
 class DynamicsModel:
     def __init__(self, device="cuda", probabilistic=False, *args, **kwargs):
         self.probabilistic = probabilistic  # Neural network type
@@ -84,9 +86,7 @@ class DynamicsModel:
     def _train_step(self, s, a, sp, n_batches, batch_size, n_samples, fill_last_batch):
         raise NotImplementedError
 
-    def fit_dynamics(
-        self, s, a, sp, s_h, a_h, sp_h, fit_epochs, batch_size=256, max_steps=1e4, track_metrics=False, *args, **kwargs
-    ):
+    def fit_dynamics(self, s, a, sp, s_h, a_h, sp_h, fit_epochs, batch_size=256, max_steps=1e4, track_metrics=False):
         # Train on normalized data
         self.nn.transform_out = False
         self.nn.set_transformations(s, a, sp, self.device)
@@ -105,6 +105,7 @@ class DynamicsModel:
 
         # Start MLflow run
         mlflow.start_run(run_name=f"{'pnn' if self.probabilistic else 'dnn'}-{self.id}", nested=True)
+        metrics_log = MetricsLog()
 
         # Train neural network
         for e in range(fit_epochs):
@@ -128,10 +129,12 @@ class DynamicsModel:
             # Log metrics to MLflow run
             mlflow.log_metrics(metrics, step=e)
             print(tabulate([(k, v) for k, v in metrics.items()], headers=[f"Epoch {e}", ""]))
+            metrics_log.update({**{"step": e}, **metrics})
             print()
 
         mlflow.end_run()
         self.nn.transform_out = True  # Once trained, outputs should not be normalized
+        return metrics_log
 
     def forward(self, s, a):
         if type(s) is np.ndarray:
