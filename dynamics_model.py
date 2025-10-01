@@ -1,31 +1,30 @@
 import torch
-from torch.nn.functional import softplus
 import numpy as np
-import mlflow
-import os
+
 
 def swish(x):
     """swish activation function"""
     return x * torch.sigmoid(x)
 
+
 class DynamicsNN(torch.nn.Module):
     def __init__(self, s_dim, a_dim, out_dim, hidden_size, activation_fn, seed):
         super(DynamicsNN, self).__init__()
 
-        # nn layers dimensions
+        # Neural network layers dimensions
         self.s_dim, self.a_dim, self.hidden_size = s_dim, a_dim, hidden_size
         self.out_dim = out_dim
         self.layer_sizes = (self.s_dim + self.a_dim,) + hidden_size + (self.out_dim,)
 
-        # nn layers
+        # Neural network layers
         self.layers = torch.nn.ModuleList(
             [torch.nn.Linear(self.layer_sizes[i], self.layer_sizes[i + 1]) for i in range(len(self.layer_sizes) - 1)]
         )
 
-        # activation function
+        # Activation function
         self.activation_fn = activation_fn
 
-        # unscale output data
+        # Output scaling
         self.transform_out = True
 
     def set_transformations(self, s, a, sp, device):
@@ -49,17 +48,10 @@ class DynamicsNN(torch.nn.Module):
 
 
 class DynamicsModel:
-    def __init__(
-        self,
-        device="cuda",
-        *args,
-        **kwargs
-    ):
+    def __init__(self, device="cuda", *args, **kwargs):
         self.device = device
         self.mse_loss = torch.nn.MSELoss()
         self.holdout_idx = None
-        home_path = os.path.expanduser("~")
-        mlflow.set_tracking_uri(f"file:{home_path}/.mlflow_pnn")
 
     def set_holdout_idx(self, holdout_idx):
         self.holdout_idx = holdout_idx
@@ -68,19 +60,7 @@ class DynamicsModel:
         self.nn.to(device)
 
     def fit_dynamics(
-        self,
-        s,
-        a,
-        sp,
-        s_h,
-        a_h,
-        sp_h,
-        batch_size,
-        fit_epochs,
-        max_steps=1e4,
-        track_mse=False,
-        *args,
-        **kwargs
+        self, s, a, sp, s_h, a_h, sp_h, batch_size, fit_epochs, max_steps=1e4, track_mse=False, *args, **kwargs
     ):
         raise NotImplementedError("The method fit_dynamics must be implemented")
 
@@ -94,43 +74,10 @@ class DynamicsModel:
         return self.nn.forward(s, a)
 
     def predict(self, s, a, to_cpu=True, det=True):
-        assert type(s) is type(a)
-        assert s.shape[0] == a.shape[0]
-        if type(s) is np.ndarray:
-            s = torch.from_numpy(s).float()
-            a = torch.from_numpy(a).float()
-        s, a = s.to(self.device), a.to(self.device)
-        mean, logvar = self.nn.forward(s, a)
-        pred = mean if det else mean + torch.randn_like(mean, device=self.device) * logvar.sqrt()
-        pred = pred.detach().cpu().numpy() if to_cpu else pred
-        return pred
+        raise NotImplementedError
 
     def predict_batched(self, s, a, batch_size=256, to_cpu=True, det=True):
-        assert type(s) is type(a)
-        assert s.shape[0] == a.shape[0]
-        if type(s) is np.ndarray:
-            s = torch.from_numpy(s).float()
-            a = torch.from_numpy(a).float()
-
-        # Batch predict to lessen GPU usage
-        num_samples = s.shape[0]
-        num_steps = int(num_samples // batch_size) + 1
-        pred = np.ndarray((s.shape))
-
-        for mb in range(num_steps):
-            batch_idx = slice(mb * batch_size, (mb + 1) * batch_size)
-            s_batch = s[batch_idx].to(self.device)
-            a_batch = a[batch_idx].to(self.device)
-            mean, logvar = self.nn.forward(s_batch, a_batch)
-
-            if det:
-                pred_b = mean
-            else:
-                pred_b = mean + torch.randn_like(mean, device=self.device) * logvar.sqrt()
-
-            pred_b = pred_b.to("cpu").data.numpy()
-            pred[batch_idx] = pred_b
-        return pred
+        raise NotImplementedError
 
     def compute_loss_batched(self, s, a, sp, batch_size=256):
         assert type(s) is type(a) is type(sp)
@@ -139,15 +86,12 @@ class DynamicsModel:
             s = torch.from_numpy(s).float()
             a = torch.from_numpy(a).float()
             sp = torch.from_numpy(sp).float()
-
         s = s.to(self.device)
         a = a.to(self.device)
         sp = sp.to(self.device)
-
         num_samples = s.shape[0]
         num_steps = int(num_samples // batch_size)
         losses = []
-
         for mb in range(num_steps):
             batch_idx = slice(mb * batch_size, (mb + 1) * batch_size)
             s_batch = s[batch_idx]

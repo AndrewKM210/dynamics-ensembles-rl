@@ -1,33 +1,34 @@
 import numpy as np
 import torch
-import torch.nn as nn
 from dynamics_model import DynamicsNN, DynamicsModel, swish
 import mlflow
 
+
 class DeterministicNN(DynamicsNN):
-    def __init__(self,s_dim, a_dim, *args, **kwargs):
+    def __init__(self, s_dim, a_dim, *args, **kwargs):
         super(DeterministicNN, self).__init__(s_dim, a_dim, *args, **kwargs)
 
     def forward(self, s, a):
-        if s.dim() != a.dim():
-            print("Error: State and action inputs should be of the same size")
-            exit(1)
-        
-        # normalize inputs
+        assert s.dim() == a.dim(), f"s and a dimensions differ: {s.dim()}, {a.dim()}"
+        assert s.shape[0] == a.shape[0], f"s and a samples differ: {s.shape[0]}, {a.shape[0]}"
+
+        # Normalize inputs
         s_in = (s - self.s_shift) / (self.s_scale + 1e-8)
         a_in = (a - self.a_shift) / (self.a_scale + 1e-8)
 
+        # Feed through newtork
         out = torch.cat([s_in, a_in], -1)
         for i in range(len(self.layers) - 1):
             out = self.layers[i](out)
             out = self.activation_fn(out)
         out = self.layers[-1](out)
-        
+
+        # Transform the output (when not training)
         if self.transform_out:
             out = out * (self.out_scale + 1e-8) + self.out_shift
             out = out * self.mask if self.use_mask else out
             out = out + s if self.residual else out
-        
+
         return out
 
 
@@ -37,13 +38,13 @@ class DeterministicModel(DynamicsModel):
         s_dim,
         a_dim,
         hidden_size,
-        activation_fn='relu',
+        activation_fn="relu",
         fit_lr=5e-4,
-        scheduler='ExponentialLR',
+        scheduler="ExponentialLR",
         scheduler_gamma=0.99,
         id=0,
         seed=123,
-        device='cuda',
+        device="cuda",
         *args,
         **kwargs,
     ):
@@ -53,16 +54,8 @@ class DeterministicModel(DynamicsModel):
         out_dim = s_dim
         self.nn = DeterministicNN(s_dim, a_dim, out_dim, hidden_size, self.activation_fn, seed=seed).to(self.device)
         self.optimizer = torch.optim.Adam(self.nn.parameters(), lr=fit_lr)
-
-        if scheduler == "MultistepLR":
-            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
-                self.optimizer, milestones=[200, 250, 275], gamma=0.25
-            )  # BRAC unscaled!
-        elif scheduler == "ExponentialLR":
+        if scheduler == "ExponentialLR":
             self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=scheduler_gamma)
-        elif scheduler == "MultiplicativeLR":
-            lmbda = lambda epoch: 0.99
-            self.scheduler = torch.optim.lr_scheduler.MultiplicativeLR(self.optimizer, lr_lambda=lmbda)
         else:
             self.scheduler = None
 
@@ -79,22 +72,17 @@ class DeterministicModel(DynamicsModel):
         max_steps=1e4,
         track_val=False,
         *args,
-        **kwargs
+        **kwargs,
     ):
-        # logging metrics
-        train_metrics = {
-            f"mse_loss_{self.id}": [],
-        }
-
-        if s_h is not None:
-            train_metrics.update({f"val_loss_{self.id}": []})
-
+        # Train on normalized data
         self.nn.transform_out = False
         self.nn.set_transformations(s, a, sp, self.device)
         sp = (sp - s - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
         if sp_h is not None:
             sp_h = (sp_h - s_h - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
         self.nn.transformations_to(self.device)
+
+        # Compute number of batches
         n_samples = sp.shape[0]
         n_batches = int(n_samples // batch_size)
         fill_last_batch = False
@@ -103,66 +91,64 @@ class DeterministicModel(DynamicsModel):
             fill_last_batch = True
         val_loss = None
 
-        # Experiment settings
+        # Start MLflow run
         mlflow.start_run(run_name=f"dnn-{self.id}", nested=True)
-            
+
+        # Train neural network
         for e in range(fit_epochs):
             print(f"Epoch: {e}")
             rand_idx = np.random.permutation(n_samples)
             mse_loss = 0.0
 
             for b in range(n_batches):
-                # get batch of data, fill with random samples if last batch
+                # Get batch of data, fill with random samples if last batch
                 data_idx = rand_idx[b * batch_size : (b + 1) * batch_size]
                 if b == n_batches - 1 and fill_last_batch:
                     fill_size = (batch_size - data_idx.shape[0],)
                     fill_idx = rand_idx[: b * batch_size][np.random.randint(0, b * batch_size, fill_size)]
                     data_idx = np.concatenate([data_idx, fill_idx])
 
-                # move batch to GPU
+                # Move batch to GPU
                 s_batch = torch.from_numpy(s[data_idx]).float().to(self.device)
                 a_batch = torch.from_numpy(a[data_idx]).float().to(self.device)
                 sp_batch = torch.from_numpy(sp[data_idx]).float().to(self.device)
 
-                # predict
+                # Predict with neural network
                 sp_hat = self.nn.forward(s_batch, a_batch)
-                
+
+                # Compute loss (MSE)
                 loss = self.mse_loss(sp_hat, sp_batch)
 
-                # optimizer step and clip gradients
+                # Optimizer step
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-
-                # log metrics
                 mse_loss += loss.detach().cpu().numpy()
 
-            # update learning rate if using a scheduler
+            # Update learning rate if using a scheduler
             lr = 0
             if self.scheduler:
                 self.scheduler.step()
                 lr = self.scheduler.get_last_lr()[0]
 
-            # compute validation loss if there is a holdout set
+            # Compute validation loss if there is a holdout set
             if (e == 0 or e % 50 == 0 or e == fit_epochs - 1 or track_val) and s_h is not None:
                 val_loss = self.compute_loss_batched(s_h, a_h, sp_h)
 
+            # Log metrics to MLflow run
             mse_loss = mse_loss * 1.0 / n_batches
             print(f"mse_loss_{self.id}: {mse_loss}")
-            train_metrics[f"mse_loss_{self.id}"].append(mse_loss)
             mlflow.log_metric("mse_train_loss", mse_loss, step=e)
             if self.scheduler:
                 print(f"lr_{self.id}: {lr}")
                 mlflow.log_metric("lr", lr, step=e)
             if val_loss:
                 print(f"val_loss_{self.id}: {val_loss}")
-                train_metrics[f"val_loss_{self.id}"].append(val_loss)
                 mlflow.log_metric("mse_val_loss", val_loss, step=e)
             print()
 
         mlflow.end_run()
-        self.nn.transform_out = True
-        return train_metrics
+        self.nn.transform_out = True  # Once trained, outputs should not be normalized
 
     def predict(self, s, a):
         s = torch.from_numpy(s).float()
@@ -176,9 +162,8 @@ class DeterministicModel(DynamicsModel):
     def predict_batched(self, s, a, batch_size=256):
         # Batch predict to lessen GPU usage
         num_samples = s.shape[0]
-        num_steps = int(num_samples // batch_size)+1
+        num_steps = int(num_samples // batch_size) + 1
         s_next = np.ndarray((s.shape))
-
         for mb in range(num_steps):
             batch_idx = slice(mb * batch_size, (mb + 1) * batch_size)
             s_batch = torch.from_numpy(s[batch_idx]).float()
