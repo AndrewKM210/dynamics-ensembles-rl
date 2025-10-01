@@ -74,8 +74,11 @@ class DeterministicModel(DynamicsModel):
         return {"mse_loss": mse_loss}
 
     def predict(self, s, a, to_cpu=True):
-        s = torch.from_numpy(s).float()
-        a = torch.from_numpy(a).float()
+        assert type(s) is type(a)
+        assert s.shape[0] == a.shape[0]
+        if type(s) is np.ndarray:
+            s = torch.from_numpy(s).float()
+            a = torch.from_numpy(a).float()
         s = s.to(self.device)
         a = a.to(self.device)
         pred = self.nn.forward(s, a)
