@@ -56,7 +56,6 @@ class ProbabilisticModel(DynamicsModel):
         fit_lr=5e-4,
         scheduler="ExponentialLR",
         scheduler_gamma=0.995,
-        id=0,
         seed=123,
         device="cuda",
         *args,
@@ -64,7 +63,6 @@ class ProbabilisticModel(DynamicsModel):
     ):
         super(ProbabilisticModel, self).__init__(device=device, *args, **kwargs)
         assert len(hidden_size) == 4, "Probabilistic NNs must have 4 hidden layers"
-        self.id = id
         self.activation_fn = swish if activation_fn == "swish" else torch.relu
         out_dim = s_dim * 2  # Mean and logvar
         self.nn = ProbabilisticNN(s_dim, a_dim, out_dim, hidden_size, self.activation_fn, seed).to(device)

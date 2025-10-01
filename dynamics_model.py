@@ -71,11 +71,12 @@ class DynamicsNN(torch.nn.Module):
 
 
 class DynamicsModel:
-    def __init__(self, device="cuda", probabilistic=False, *args, **kwargs):
+    def __init__(self, device="cuda", probabilistic=False, id=0, *args, **kwargs):
         self.probabilistic = probabilistic  # Neural network type
         self.device = device
         self.mse_loss = torch.nn.MSELoss()
         self.holdout_idx = None
+        self.id = id
 
     def set_holdout_idx(self, holdout_idx):
         self.holdout_idx = holdout_idx
@@ -129,7 +130,7 @@ class DynamicsModel:
             # Log metrics to MLflow run
             mlflow.log_metrics(metrics, step=e)
             print(tabulate([(k, v) for k, v in metrics.items()], headers=[f"Epoch {e}", ""]))
-            metrics_log.update({**{"step": e}, **metrics})
+            metrics_log.update({**{"step": e, "model_id": self.id}, **metrics})
             print()
 
         mlflow.end_run()
