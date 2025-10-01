@@ -52,6 +52,8 @@ class DynamicsModel:
     def __init__(
         self,
         device="cuda",
+        *args,
+        **kwargs
     ):
         self.device = device
         self.mse_loss = torch.nn.MSELoss()
@@ -74,9 +76,11 @@ class DynamicsModel:
         a_h,
         sp_h,
         batch_size,
-        epochs,
+        fit_epochs,
         max_steps=1e4,
         track_mse=False,
+        *args,
+        **kwargs
     ):
         raise NotImplementedError("The method fit_dynamics must be implemented")
 

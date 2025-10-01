@@ -97,9 +97,11 @@ class ProbabilisticModel(DynamicsModel):
         a_h=None,
         sp_h=None,
         batch_size=256,
-        epochs=100,
+        fit_epochs=100,
         max_steps=1e4,
         track_mse=False,
+        *args,
+        **kwargs,
     ):
         # logging metrics
         train_metrics = {
@@ -129,7 +131,6 @@ class ProbabilisticModel(DynamicsModel):
         val_loss = None
         
         # Experiment settings
-        mlflow.set_experiment('dynamics_model')
         run = mlflow.start_run(run_name=f"hopper_ensemble_probabilistic_{self.id}",
             tags={
                 "dataset": "hopper-medium-v0",
@@ -143,7 +144,7 @@ class ProbabilisticModel(DynamicsModel):
             "epochs": 25
         })
 
-        for e in range(epochs):
+        for e in range(fit_epochs):
             print(f"Epoch: {e}")
             rand_idx = np.random.permutation(n_samples)
             gauss_loss = 0.0
@@ -201,7 +202,7 @@ class ProbabilisticModel(DynamicsModel):
                 lr = self.scheduler.get_last_lr()[0]
 
             # compute validation loss if there is a holdout set
-            if track_mse or e == 0 or e % 50 == 0 or e == epochs - 1:
+            if track_mse or e == 0 or e % 50 == 0 or e == fit_epochs - 1:
                 mse_loss = self.compute_loss_batched(s, a, sp)
                 if s_h is not None:
                     val_loss = self.compute_loss_batched(s_h, a_h, sp_h)
