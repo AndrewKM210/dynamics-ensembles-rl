@@ -20,6 +20,9 @@ parser.add_argument("--output", type=str, default="test.pickle", help="output pa
 parser.add_argument("--holdout_ratio", type=float, default=0.0, help="percentage of dataset to use for validation")
 parser.add_argument("--csv", type=str, default=None, help="path to csv with training metrics, will track all metrics")
 parser.add_argument("--track_training", action="store_true", default=False, help="track all training metrics")
+parser.add_argument(
+    "--params", type=str, nargs="+", default=None, help="replaces config file parameters, format: param=value"
+)
 args = parser.parse_args()
 
 # Open and parse config file
@@ -27,6 +30,9 @@ with open(args.config, "r") as f:
     config = yaml.safe_load(f)
 config["fit_lr"] = float(config["fit_lr"])
 config["hidden_size"] = ast.literal_eval(config["hidden_size"])
+
+# Parse additional arguments
+config = utils.parse_unknown(args.params, config)
 
 # If asked, prepare folder where the csv should be saved
 if args.csv is not None:
@@ -50,9 +56,7 @@ r = np.concatenate([p["rewards"][:-1] for p in paths])
 sp = np.concatenate([p["observations"][1:] for p in paths])
 s_h, a_h, sp_h = None, None, None
 if args.holdout_ratio > 0:
-    if args.holdout_ratio <= 0 or args.holdout_ratio >= 1.0:
-        print("Error: holdout ratio must be between 0 and 1")
-        exit(-1)
+    assert args.holdout_ratio <= 0 or args.holdout_ratio >= 1.0, "Holdout ratio must be between 0 and 1"
     idx_rand = np.random.permutation(len(paths)).astype(int)
     num_paths_train = int(len(paths) * (1 - args.holdout_ratio))
     paths_train = [paths[i] for i in idx_rand[:num_paths_train]]
@@ -95,7 +99,7 @@ with mlflow.start_run(run_name=args.dataset.lower()) as run:
         print(f"\nFitting neural network {i}\n")
         metrics = nn.fit_dynamics(s, a, sp, s_h, a_h, sp_h, track_metrics=track_metrics, fit_epochs=fit_epochs)
         if args.csv is not None:
-            utils.update_metrics_csv(metrics, args.csv, replace=i==0)
+            utils.update_metrics_csv(metrics, args.csv, replace=i == 0)
 
 # Save ensemble
 print("\nSaving ensemble to", args.output)

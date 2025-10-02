@@ -1,10 +1,11 @@
+import ast
 import os
 import random
-import numpy as np
-import torch
-import gym
 import d4rl  # noqa: F401
+import gym
+import numpy as np
 import pandas as pd
+import torch
 
 
 class MetricsLog:
@@ -23,7 +24,7 @@ class MetricsLog:
 
     def to_df(self) -> pd.DataFrame:
         return pd.DataFrame(self.metrics_log)
-    
+
 
 def update_metrics_csv(metrics: MetricsLog, path: str, replace: bool):
     if os.path.exists(path) and not replace:
@@ -39,6 +40,19 @@ def prepare_log_csv(path):
     if not os.path.exists(dir):
         print("Creating dir", dir)
         os.mkdir(dir)
+
+
+def parse_unknown(args, config):
+    assert_str = "Additional parameters must have format arg=value"
+    for arg in args:
+        arg = arg.split("=")
+        assert len(arg) == 2, f"{assert_str}: {'='.join(arg)}"
+        param, value = arg[0], ast.literal_eval(arg[1])
+        assert param in config.keys(), f"Parameter not found: {param}"
+        assert type(value) is type(config[param]), f"Incorrect type of {param}: {type(value)}"
+        config[param] = value
+    return config
+
 
 def seed_torch(seed=123):
     """Sets all necessary seeds and makes torch deterministic"""
