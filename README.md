@@ -70,4 +70,5 @@ TODO
 
 - Fu et al. D4RL: Datasets for Deep Data-Driven Reinforcement Learning. NeurIPS 2020.
 - Chua et al. Deep Reinforcement Learning in a Handful of Trials using Probabilistic Dynamics Models (PETS). NeurIPS 2018.
+- Kidambi et al. MOReL: Model-Based Offline Reinforcement Learning. NeurIPS 2020.
 - MLflow: https://mlflow.org
