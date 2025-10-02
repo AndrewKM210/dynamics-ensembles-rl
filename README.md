@@ -48,20 +48,28 @@ The available datasets can be found in the Gym section of the following link:
 Learn the dynamics of a D4RL dataset with a configuration file and store to file:
 
 ```bash
-python learn_model.py --dataset hopper-medium-v0 --config configs/hopper_dnn.yaml --output model.pkl
+python learn_model.py --dataset hopper-medium-v0 --config configs/dnn.yaml --output model.pkl
+```
+
+Parameters in the configuration files can be replaced for testing:
+```bash
+python learn_model.py --dataset hopper-medium-v0 --config configs/dnn.yaml --params fit_epochs=100 hidden_size=256,256
 ```
 
 Use a holdout split of the dataset to track validation loss:
 ```bash
-python learn_model.py --dataset hopper-medium-v0 --config configs/hopper_dnn.yaml --holdout_ratio 0.2 --track_training
+python learn_model.py --dataset hopper-medium-v0 --config configs/dnn.yaml --holdout_ratio 0.2 --track_training
 ```
 
-With ```--track_training``` all training metrics wil be logged in each epochs. Otherwise, the script prioritizes execution time and skips expensive non-essential metrics. The metrics are logged to MLflow. To view them use the following command and open http://127.0.0.1:5000: 
-
+With ```--track_training``` all training metrics will be logged in each epochs. Otherwise, the script prioritizes execution time and skips expensive non-essential metrics. The metrics are logged to MLflow. To view them use the following command and open http://127.0.0.1:5000: 
 ```bash
 mlflow ui --port 5000
 ```
 
+Additionally, save tracked metrics to a csv file for analyzing and plotting (all training metrics will be logged):
+```bash
+python learn_model.py --dataset hopper-medium-v0 --config configs/dnn.yaml --csv logs/hopper_dnn.csv
+```
 # Example Results
 
 TODO
