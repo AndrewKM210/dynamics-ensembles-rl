@@ -1,9 +1,9 @@
-hidden_size: (32, 32)
-fit_epochs: 5
+hidden_size: (512, 512, 512, 512)
+fit_epochs: 500
 fit_lr: 5e-4
 scheduler: ExponentialLR
 scheduler_gamma: 0.99
 activation_fn: relu
-ensemble_size: 2
+ensemble_size: 4
 probabilistic: False
-seed:  123
+seed: 123
