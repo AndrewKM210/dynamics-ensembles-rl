@@ -33,7 +33,8 @@ config["fit_lr"] = float(config["fit_lr"])
 config["hidden_size"] = ast.literal_eval(config["hidden_size"])
 
 # Parse additional arguments
-config = utils.parse_unknown(args.params, config)
+if args.params is not None:
+    config = utils.parse_params(args.params, config)
 
 # If asked, prepare folder where the csv should be saved
 if args.csv is not None:

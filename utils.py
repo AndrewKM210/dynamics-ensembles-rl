@@ -42,7 +42,7 @@ def prepare_log_csv(path):
         os.mkdir(dir)
 
 
-def parse_unknown(args, config):
+def parse_params(args, config):
     assert_str = "Additional parameters must have format arg=value"
     for arg in args:
         arg = arg.split("=")
