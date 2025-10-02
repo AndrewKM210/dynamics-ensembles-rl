@@ -20,6 +20,7 @@ parser.add_argument("--output", type=str, default="test.pickle", help="output pa
 parser.add_argument("--holdout_ratio", type=float, default=0.0, help="percentage of dataset to use for validation")
 parser.add_argument("--csv", type=str, default=None, help="path to csv with training metrics, will track all metrics")
 parser.add_argument("--track_training", action="store_true", default=False, help="track all training metrics")
+parser.add_argument("--cpu", action="store_true", default=False, help="use CPU instead of GPU")
 args = parser.parse_args()
 
 # Open and parse config file
@@ -40,8 +41,8 @@ utils.seed_torch(seed)
 print("Loading dataset", args.dataset)
 paths = utils.d4rl2paths(args.dataset)
 
-# # TODO: remove
-paths = paths[:100]
+# Select device
+device = "cpu" if args.cpu else "cuda"
 
 # Convert paths into training data (s, a, r, sp)
 s = np.concatenate([p["observations"][:-1] for p in paths])
@@ -80,7 +81,7 @@ print("\nFitting the ensemble to the dataset")
 ensemble = []
 model_class = DeterministicModel if not config["probabilistic"] else ProbabilisticModel
 ensemble = [
-    model_class(s.shape[-1], a.shape[-1], device="cpu", seed=seed + i, id=i, **config)
+    model_class(s.shape[-1], a.shape[-1], device=device, seed=seed + i, id=i, **config)
     for i in range(config["ensemble_size"])
 ]
 
