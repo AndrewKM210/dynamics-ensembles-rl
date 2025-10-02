@@ -58,7 +58,7 @@ r = np.concatenate([p["rewards"][:-1] for p in paths])
 sp = np.concatenate([p["observations"][1:] for p in paths])
 s_h, a_h, sp_h = None, None, None
 if args.holdout_ratio > 0:
-    assert args.holdout_ratio <= 0 or args.holdout_ratio >= 1.0, "Holdout ratio must be between 0 and 1"
+    assert args.holdout_ratio >= 0 and args.holdout_ratio < 1.0, "Holdout ratio must be between 0 and 1"
     idx_rand = np.random.permutation(len(paths)).astype(int)
     num_paths_train = int(len(paths) * (1 - args.holdout_ratio))
     paths_train = [paths[i] for i in idx_rand[:num_paths_train]]
