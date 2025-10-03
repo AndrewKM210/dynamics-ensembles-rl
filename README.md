@@ -3,7 +3,10 @@
 This repository contains the implementation of my MSc thesis work on learning environment dynamics with neural network ensembles.
 The project explores deterministic vs probabilistic ensemble models for dynamics learning on D4RL benchmark datasets, and tracks training/evaluation with MLflow.
 
-![alt](assets/ensemble_learning.png)
+<!-- ![alt](assets/ensemble_learning.png) -->
+<p align="center">
+  <img src="assets/ensemble_learning.png" alt="Ensemble learning diagram" width="700"/>
+</p>
 
 # Project Overview
 
