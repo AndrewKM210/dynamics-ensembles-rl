@@ -8,7 +8,7 @@ import mlflow
 import numpy as np
 import yaml
 from tabulate import tabulate
-import utils
+import models.utils as utils
 from models.deterministic_model import DeterministicModel
 from models.probabilistic_model import ProbabilisticModel
 

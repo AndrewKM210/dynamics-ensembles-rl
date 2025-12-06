@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import mlflow
 from tabulate import tabulate
-from utils import MetricsLog
+from models.utils import MetricsLog
 
 
 def swish(x):
