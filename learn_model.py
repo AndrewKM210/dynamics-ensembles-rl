@@ -15,6 +15,7 @@ from models.probabilistic_model import ProbabilisticModel
 
 parser = argparse.ArgumentParser(description="Train ensemble of neural networks")
 parser.add_argument("--dataset", type=str, required=True, help="name of D4RL dataset")
+parser.add_argument("--dataset_path", type=str, help="path to D4RL dataset (will save/load dataset)")
 parser.add_argument("--config", type=str, required=True, help="path to config yaml file")
 parser.add_argument("--output", type=str, default="test.pickle", help="output path for model")
 parser.add_argument("--holdout_ratio", type=float, default=0.0, help="percentage of dataset to use for validation")
@@ -46,7 +47,13 @@ utils.seed_torch(seed)
 
 # Load dataset into a collection of paths
 print("Loading dataset", args.dataset)
-paths = utils.d4rl2paths(args.dataset)
+if args.dataset_path and os.path.exists(args.dataset_path):
+    print("Loading from", args.dataset_path)
+    paths = pickle.load(open(args.dataset_path, "rb"))
+else:
+    paths = utils.d4rl2paths(args.dataset)
+    if args.dataset_path:
+        pickle.dump(paths, open(args.dataset_path, "wb"))
 
 # Select device
 device = "cpu" if args.cpu else "cuda"
