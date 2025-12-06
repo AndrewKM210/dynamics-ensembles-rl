@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from dynamics_model import DynamicsNN, DynamicsModel, swish
+from models.dynamics_model import DynamicsNN, DynamicsModel, swish
 
 
 class DeterministicNN(DynamicsNN):

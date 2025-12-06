@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dynamics_ensembles"
+version = "0.1.0"
+description = "Probabilistic Neural Network Ensemble for Model-Based RL"
+readme = "README.md"
+requires-python = ">=3.10.0"
+
+authors = [
+    { name = "Andrew Keon Mackay Parrott" }
+]
+
+license = { text = "MIT" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["models"]

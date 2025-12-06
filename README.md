@@ -41,7 +41,7 @@ The project was tested with Python 3.10.18. It is recommended to use ```pyenv```
 git clone https://github.com/AndrewKM210/dynamics-ensembles-rl.git
 cd dynamics-ensembles-rl
 pip install -r requirements.txt
-
+pip install -e .
 ```
 
 # Usage

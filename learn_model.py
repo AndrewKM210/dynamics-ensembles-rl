@@ -9,8 +9,8 @@ import numpy as np
 import yaml
 from tabulate import tabulate
 import utils
-from deterministic_model import DeterministicModel
-from probabilistic_model import ProbabilisticModel
+from models.deterministic_model import DeterministicModel
+from models.probabilistic_model import ProbabilisticModel
 
 
 parser = argparse.ArgumentParser(description="Train ensemble of neural networks")
