@@ -1,3 +1,5 @@
 __pycache__
 mlruns
 *.egg-info
+*.pkl
+*.pickle
