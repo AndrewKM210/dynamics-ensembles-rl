@@ -1,0 +1,9 @@
+hidden_size: [1024, 1024]
+fit_epochs: 3000
+fit_lr: 5e-4
+scheduler: "None"
+scheduler_gamma: "None"
+activation_fn: relu
+ensemble_size: 4
+probabilistic: False
+seed: 123
