@@ -6,6 +6,9 @@ gym==0.13.0
 mlflow==3.4.0
 --extra-index-url https://download.pytorch.org/whl/cpu # CPU only is lighter on disk usage
 torch==2.1.0
+ipykernel==6.30.1
+seaborn==0.13.2
+git+https://github.com/AndrewKM210/matplotlib-github-theme.git
 
 # Last time tested cython 3 and mujoco_py do not work together
 Cython==0.29.37

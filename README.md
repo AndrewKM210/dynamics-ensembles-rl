@@ -74,9 +74,19 @@ Additionally, save tracked metrics to a specified csv file for analyzing and plo
 ```bash
 python train_ensemble.py --dataset hopper-medium-v0 --config configs/dnn.yaml --csv logs/hopper_dnn.csv --track_training
 ```
-# Example Results
+# Results
 
-TODO
+The following plots show the train and validation Mean Squared Error (MSE) loss while training different 2 neural network ensembles on D4RL's halfcheetah-medium-v0 dataset. Even though the deterministic ensemble achieves a better train loss, the probabilistic ensemble outperforms in the validation loss. Not using a learning rate scheduler for the probabilistic ensemble leads to unstable losses.
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/loss_train_dark.png">
+    <img src="assets/loss_train_light.png" alt="Train loss.">
+</picture>
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/loss_val_dark.png">
+    <img src="assets/loss_val_light.png" alt="Validation loss.">
+</picture>
 
 # References
 
