@@ -129,7 +129,7 @@ class DynamicsModel:
 
             # Log metrics to MLflow run
             mlflow.log_metrics(metrics, step=e)
-            print(tabulate([(k, v) for k, v in metrics.items()], headers=[f"Epoch {e}", ""]))
+            print(tabulate([(f"{k}_{self.id}", v) for k, v in metrics.items()], headers=[f"Epoch {e}", ""]))
             metrics_log.update({**{"step": e, "model_id": self.id}, **metrics})
             print()
 

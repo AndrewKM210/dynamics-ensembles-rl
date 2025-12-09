@@ -52,17 +52,17 @@ The available datasets can be found in the Gym section of the following link:
 
 Learn the dynamics of a D4RL dataset with a configuration file and store to file:
 ```bash
-python train_ensemble.py --dataset hopper-medium-v0 --config configs/dnn.yaml --output ensemble.pkl
+python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --output ensemble.pkl
 ```
 
 Parameters in the configuration files can be replaced for testing:
 ```bash
-python train_ensemble.py --dataset hopper-medium-v0 --config configs/dnn.yaml --params fit_epochs=100 hidden_size=256,256
+python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --params fit_epochs=100 hidden_size=256,256
 ```
 
 Use a holdout split of the dataset to track validation loss:
 ```bash
-python train_ensemble.py --dataset hopper-medium-v0 --config configs/dnn.yaml --holdout_ratio 0.2 --track_training
+python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --holdout_ratio 0.2 --track_training
 ```
 
 With ```--track_training``` all training metrics will be logged in each epochs. Otherwise, the script prioritizes execution time and skips expensive non-essential metrics. The metrics are logged to MLflow. To view them use the following command and open http://127.0.0.1:5000: 
@@ -74,6 +74,22 @@ Additionally, save tracked metrics to a specified csv file for analyzing and plo
 ```bash
 python train_ensemble.py --dataset hopper-medium-v0 --config configs/dnn.yaml --csv logs/hopper_dnn.csv --track_training
 ```
+
+For managing and tracking experiments, [guildai](https://github.com/guildai/guildai) can also be used to track experiments with the `guild.yml` config file. This library can be useful for staging and tracking experiments in clusters (combined with SLURM). To install guildai:
+
+```bash
+pip install guildai
+# pip install 'pydantic<2' fixes NameError
+```
+
+With the current guildai version, a "NameError: Fields must not use names with leading underscores" error is returned when running `guild run`, install 'pydantic<2' to fix this. An example of running a train_ensemble experiment with custom parameters is:
+
+```bash
+guild run train_ensemble config=./configs/pnn.yaml dataset=hopper-medium-v0 output=${PWD}/ensemble.pkl
+```
+
+Experiments can be tracked in real time with `guild tensorboard`. The final results of several runs can be compared and stored to a .csv file with `guild compare --csv results.csv`.
+
 # Results
 
 The following plots show the train and validation Mean Squared Error (MSE) loss while training different 2 neural network ensembles on D4RL's halfcheetah-medium-v0 dataset. Even though the deterministic ensemble achieves a better train loss, the probabilistic ensemble outperforms in the validation loss. Not using a learning rate scheduler for the probabilistic ensemble leads to unstable losses.

@@ -1,0 +1,19 @@
+train_ensemble:
+  description: Train an ensemble of dynamics models
+  main: train_ensemble
+  flags-import: all
+  flags:
+    config:
+      required: yes
+    dataset:
+      required: yes
+    output:
+      required: yes
+  output-scalars: 
+    - step: 'Epoch\s+(\step)'
+    - '(\key)\s+(\value)'
+  sourcecode: 
+    - include: '*.py'
+  requires:
+    - file: ${config}
+      target-path: configs
