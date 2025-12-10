@@ -50,17 +50,22 @@ pip install -e .
 The available datasets can be found in the Gym section of the following link:
 - https://github.com/Farama-Foundation/d4rl/wiki/Tasks
 
-Learn the dynamics of a D4RL dataset with a configuration file and store to file:
+To learn the dynamics of a D4RL dataset with a configuration file and store to file:
 ```bash
 python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --output ensemble.pkl
 ```
 
-Parameters in the configuration files can be replaced for testing:
+The dataset path can be set to save the downloaded dataset as a pickle for other applications:
+```bash
+python train_ensemble.py --dataset hopper-medium-v0 --dataset_path ensembles/hopper_medium.pkl --config configs/pnn.yaml
+```
+
+The parameters in the configuration files can be replaced for testing:
 ```bash
 python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --params fit_epochs=100 hidden_size=256,256
 ```
 
-Use a holdout split of the dataset to track validation loss:
+A holdout split of the dataset can be defined to track validation loss:
 ```bash
 python train_ensemble.py --dataset hopper-medium-v0 --config configs/pnn.yaml --holdout_ratio 0.2 --track_training
 ```

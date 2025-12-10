@@ -176,6 +176,7 @@ if __name__ == "__main__":
     else:
         paths = utils.d4rl2paths(config.dataset)
         if config.dataset_path:
+            print("Saving dataset to", config.dataset_path)
             pickle.dump((paths, {"dataset": config.dataset}), open(config.dataset_path, "wb"))
 
     # Train ensemble of dynamics models
