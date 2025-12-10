@@ -30,24 +30,33 @@ class DynamicsNN(torch.nn.Module):
         # Output scaling
         self.transform_out = True
 
+        # In and out normalization
+        self.s_shift = None
+        self.a_shift = None
+        self.s_scale = None
+        self.a_scale = None
+        self.out_shift = None
+        self.out_scale = None
+        self.mask = None
+
     def set_transformations(self, s, a, sp, device):
         """Sets input and output scaling with the Mean Absolute Difference"""
-        self.s_shift = np.mean(s, axis=0)
-        self.a_shift = np.mean(a, axis=0)
-        self.s_scale = np.mean(np.abs(s - self.s_shift), axis=0)
-        self.a_scale = np.mean(np.abs(a - self.a_shift), axis=0)
-        self.out_shift = np.mean(sp - s, axis=0)
-        self.out_scale = np.mean(np.abs(sp - s - self.out_shift), axis=0)
-        self.mask = self.out_scale >= 1e-8
+        self.s_shift = torch.from_numpy(np.mean(s, axis=0)).float()
+        self.a_shift = torch.from_numpy(np.mean(a, axis=0)).float()
+        self.s_scale = torch.from_numpy(np.mean(np.abs(s - self.s_shift), axis=0)).float()
+        self.a_scale = torch.from_numpy(np.mean(np.abs(a - self.a_shift), axis=0)).float()
+        self.out_shift = torch.from_numpy(np.mean(sp - s, axis=0)).float()
+        self.out_scale = torch.from_numpy(np.mean(np.abs(sp - s - self.out_shift), axis=0)).float()
+        self.mask = torch.from_numpy(self.out_scale >= 1e-8)
 
     def transformations_to(self, device):
-        self.s_shift = torch.from_numpy(self.s_shift).float().to(device)
-        self.a_shift = torch.from_numpy(self.a_shift).float().to(device)
-        self.s_scale = torch.from_numpy(self.s_scale).float().to(device)
-        self.a_scale = torch.from_numpy(self.a_scale).float().to(device)
-        self.out_shift = torch.from_numpy(self.out_shift).float().to(device)
-        self.out_scale = torch.from_numpy(self.out_scale).float().to(device)
-        self.mask = torch.from_numpy(self.mask).to(device)
+        self.s_shift = self.s_shift.to(device)
+        self.a_shift = self.a_shift.to(device)
+        self.s_scale = self.s_scale.to(device)
+        self.a_scale = self.a_scale.to(device)
+        self.out_shift = self.out_shift.to(device)
+        self.out_scale = self.out_scale.to(device)
+        self.mask = self.mask.to(device)
 
     def _finalize_forward(self, s, out):
         raise NotImplementedError
@@ -83,6 +92,7 @@ class DynamicsModel:
 
     def to(self, device):
         self.nn.to(device)
+        self.nn.transformations_to(device)
 
     def _train_step(self, s, a, sp, n_batches, batch_size, n_samples, fill_last_batch):
         raise NotImplementedError
