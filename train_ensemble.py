@@ -125,8 +125,10 @@ def train_ensemble(paths, config):
     if ensemble_dir != "" and ensemble_dir != "/" and not os.path.exists(ensemble_dir):
         os.mkdir(ensemble_dir)
 
-    # Save ensemble
+    # Save ensemble (move ensemble to CPU in case there is no CUDA device later)
     if config.output != "None":
+        for m in ensemble:
+            m.to("cpu")
         print("\nSaving trained ensemble to", config.output)
         pickle.dump((ensemble, dict(config)), open(config.output, "wb"))
     else:
