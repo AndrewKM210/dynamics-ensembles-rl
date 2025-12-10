@@ -47,8 +47,26 @@ pip install -e .
 
 # Usage
 
-The available datasets can be found in the Gym section of the following link:
-- https://github.com/Farama-Foundation/d4rl/wiki/Tasks
+The available datasets can be found in the Gym section of [this page](https://github.com/Farama-Foundation/d4rl/wiki/Tasks). 
+
+## Downloading Fully Trained Ensembles
+
+The weights of some fully trained ensembles can be found [this HuggingFace repository](https://huggingface.co/AndrewKM210/dynamics-ensembles-rl/tree/main). These can be used for other applications (such as [J-MOReL](https://github.com/andrewkm210/j-morel) and [MBiCEM](https://github.com/AndrewKM210/MBiCEM)), and can be downloaded to the *ensembles_hf* directory with:
+```bash
+git clone https://huggingface.co/AndrewKM210/dynamics-ensembles-rl ensembles_rf
+```
+
+The ensembles can be reconstructed from the weights with:
+```bash
+python convert_hf_ensemble.py --input ensembles_hf/halfcheetah_medium --output ensembles/halfcheetah_medium.pkl
+```
+
+The datasets can be processed and saved without training an ensemble with:
+```bash
+python load_dataset.py --dataset halfcheetah-medium-v0 --output datasets/halfcheetah_medium.pkl
+```
+
+## Training an Ensemble
 
 To learn the dynamics of a D4RL dataset with a configuration file and store to file:
 ```bash
