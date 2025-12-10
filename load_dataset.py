@@ -9,6 +9,9 @@ def create_d4rl_dataset(dataset, output):
     print("Downloading and preparing D4RL dataset")
     paths = utils.d4rl2paths(dataset)
     print("Saving dataset to", output)
+    parent_dir = os.path.split(output)[0]
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
     pickle.dump((paths, {"dataset": dataset}), open(output, "wb"))
     return paths
 
