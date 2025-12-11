@@ -41,13 +41,16 @@ class DynamicsNN(torch.nn.Module):
 
     def set_transformations(self, s, a, sp, device):
         """Sets input and output scaling with the Mean Absolute Difference"""
-        self.s_shift = torch.from_numpy(np.mean(s, axis=0)).float()
-        self.a_shift = torch.from_numpy(np.mean(a, axis=0)).float()
+        self.s_shift = np.mean(s, axis=0)
+        self.a_shift = np.mean(a, axis=0)
         self.s_scale = torch.from_numpy(np.mean(np.abs(s - self.s_shift), axis=0)).float()
         self.a_scale = torch.from_numpy(np.mean(np.abs(a - self.a_shift), axis=0)).float()
-        self.out_shift = torch.from_numpy(np.mean(sp - s, axis=0)).float()
+        self.out_shift = np.mean(sp - s, axis=0)
         self.out_scale = torch.from_numpy(np.mean(np.abs(sp - s - self.out_shift), axis=0)).float()
-        self.mask = torch.from_numpy(self.out_scale >= 1e-8)
+        self.s_shift = torch.from_numpy(self.s_shift).float()
+        self.a_shift = torch.from_numpy(self.a_shift).float()
+        self.out_shift = torch.from_numpy(self.out_shift).float()
+        self.mask = self.out_scale >= 1e-8
 
     def transformations_to(self, device):
         self.s_shift = self.s_shift.to(device)
@@ -101,9 +104,9 @@ class DynamicsModel:
         # Train on normalized data
         self.nn.transform_out = False
         self.nn.set_transformations(s, a, sp, self.device)
-        sp = (sp - s - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
+        sp = (sp - s - self.nn.out_shift.numpy()) / (self.nn.out_scale.numpy() + 1e-8)
         if sp_h is not None:
-            sp_h = (sp_h - s_h - self.nn.out_shift) / (self.nn.out_scale + 1e-8)
+            sp_h = (sp_h - s_h - self.nn.out_shift.numpy()) / (self.nn.out_scale.numpy() + 1e-8)
         self.nn.transformations_to(self.device)
 
         # Compute number of batches
